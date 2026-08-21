@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drawdown DCA Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="style.css">
+    <!-- Lightweight Charts for professional trading chart -->
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+
+        <!-- Left Panel: Trading Chart -->
+        <main class="chart-panel">
+            <header class="chart-header">
+                <div class="header-title">
+                    <span class="logo-icon">M</span>
+                    <h1>
+                        DRAWDOWN DCA SIMULATOR
+                        <span class="badge sim">HA + RSI</span>
+                        <div id="tf-selector-group" class="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 ml-2">
+                            <button id="tf-1d" class="px-2 py-0.5 text-[10px] font-bold rounded transition-all bg-white text-slate-800 shadow-sm" data-tf="1d">1D</button>
+                            <button id="tf-3d" class="px-2 py-0.5 text-[10px] font-bold rounded transition-all text-slate-500 hover:text-slate-800" data-tf="3d">3D</button>
+                            <button id="tf-1w" class="px-2 py-0.5 text-[10px] font-bold rounded transition-all text-slate-500 hover:text-slate-800" data-tf="1w">1W</button>
+                        </div>
+                    </h1>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <div class="hidden lg:flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2 py-1 rounded text-xs">
+                        <span class="text-slate-500 font-bold text-[10px]">FILTER:</span>
+                        <input type="date" id="dca-start-date" value="2026-01-01" class="bg-transparent border-0 text-[11px] font-mono text-slate-800 font-semibold focus:outline-none p-0">
+                        <span class="text-slate-400 font-bold">→</span>
+                        <input type="date" id="dca-end-date" value="2099-12-31" class="bg-transparent border-0 text-[11px] font-mono text-slate-800 font-semibold focus:outline-none p-0">
+                    </div>
+
+                    <div class="header-stats">
+                        <div class="stat-item">
+                            <span class="label">LIVE BTC/USDT</span>
+                            <span class="value font-bold" id="live-price">Connecting...</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">PRICE SOURCE</span>
+                            <span class="value">BINANCE (LIVE)</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="label">INDICATOR</span>
+                            <span class="value" id="indicator-status">Drawdown DCA: Booting…</span>
+                        </div>
+                    </div>
+
+                    <!-- Zoom & Action Toolbar -->
+                    <div class="flex items-center gap-1 border-l border-slate-200 pl-2">
+                        <button id="btn-zoom-in" class="screenshot-btn" title="Zoom In (Enlarge Candles)">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                        </button>
+                        <button id="btn-zoom-out" class="screenshot-btn" title="Zoom Out">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                        </button>
+                        <button id="btn-zoom-fit" class="screenshot-btn" title="Fit Content">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+                        </button>
+                        <button id="btn-guide" class="screenshot-btn text-blue-600 font-bold text-xs" title="Strategy Guide">
+                            ?
+                        </button>
+                        <button class="screenshot-btn" id="btn-screenshot" title="Save Chart Screenshot">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Chart Container -->
+            <div class="chart-container" id="chart-viewport">
+                <!-- Indicator Legend Overlay -->
+                <div class="absolute top-3 left-4 z-20 flex flex-wrap items-center gap-3 bg-white/90 backdrop-blur-sm border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm text-[11px] font-semibold text-slate-700 pointer-events-none">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-0.5 bg-emerald-500 rounded"></span> 21 EMA
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-0.5 bg-red-500 rounded"></span> 50 EMA
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-0.5 bg-purple-500 rounded"></span> 200 MA
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-3 h-1 bg-amber-500 rounded"></span> DCA Avg Cost
+                    </span>
+                    <span class="flex items-center gap-1 text-[10px] text-slate-500 border-l border-slate-200 pl-2">
+                        <span>Candles:</span> <strong class="text-slate-800">Heikin Ashi</strong>
+                    </span>
+                </div>
+
+                <!-- Main Chart Mount -->
+                <div id="custom-chart" class="w-full h-full"></div>
+            </div>
+        </main>
+
+        <!-- Right Panel: Sidebar Controls -->
+        <aside class="sidebar-panel">
+
+            <!-- Sidebar Navigation Tabs -->
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" data-target="tab-simulator">DCA Strategy</button>
+                <button class="sidebar-tab" data-target="tab-history">Trade Log</button>
+            </div>
+
+            <!-- TAB 1: Simulator & Order Controls -->
+            <div class="sidebar-content active" id="tab-simulator">
+
+                <!-- Portfolio Simulation Results Section -->
+                <div class="panel-section">
+                    <div class="section-header space-between">
+                        <h2>Results</h2>
+                        <span class="subtitle">Peak-to-Trough Backtest</span>
+                    </div>
+
+                    <div class="balance-display">
+                        <div class="balance-label">TOTAL PORTFOLIO VALUE</div>
+                        <div class="balance-amount font-mono" id="dca-stat-value">$0.00</div>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-label">TOTAL INVESTED</span>
+                            <span class="stat-value font-mono" id="dca-stat-invested">$0.00</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">AVERAGE BUY COST</span>
+                            <span class="stat-value font-mono" id="dca-stat-avg-cost">$0.00</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">NET PROFIT / LOSS</span>
+                            <span class="stat-value font-mono" id="dca-stat-profit">+$0.00</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">TOTAL RETURN %</span>
+                            <span class="stat-value font-mono" id="dca-stat-profit-pct">+0.00%</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">TOTAL DCA ENTRIES</span>
+                            <span class="stat-value font-mono" id="dca-stat-entries">0</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">BASE DCA ORDER</span>
+                            <span class="stat-value font-mono text-emerald-600" id="stat-dca-current-badge">$350.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Period Section -->
+                <div class="panel-section">
+                    <div class="section-header space-between">
+                        <h2>Filter Period</h2>
+                        <span class="subtitle font-mono text-[10px] text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded" id="filter-display-badge">01/01/2026 → 31/12/2099</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="input-group mb-0">
+                            <label for="dca-start-date-side">START DATE</label>
+                            <input type="date" id="dca-start-date-side" value="2026-01-01" class="font-semibold text-slate-800" />
+                        </div>
+                        <div class="input-group mb-0">
+                            <label for="dca-end-date-side">END DATE</label>
+                            <input type="date" id="dca-end-date-side" value="2099-12-31" class="font-semibold text-slate-800" />
+                        </div>
+                    </div>
+
+                    <!-- Quick Preset Period Buttons -->
+                    <div class="flex items-center gap-1.5 pt-2 flex-wrap">
+                        <span class="text-[10px] text-slate-400 font-semibold">Presets:</span>
+                        <button type="button" class="btn-quick-period px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 font-medium text-slate-700 transition" data-start="2026-01-01" data-end="2099-12-31">2026-2099</button>
+                        <button type="button" class="btn-quick-period px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 font-medium text-slate-700 transition" data-start="2025-01-01" data-end="2099-12-31">2025-Now</button>
+                        <button type="button" class="btn-quick-period px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 font-medium text-slate-700 transition" data-start="2024-01-01" data-end="2099-12-31">2024-Now</button>
+                        <button type="button" class="btn-quick-period px-2 py-0.5 text-[10px] rounded bg-slate-100 hover:bg-slate-200 font-medium text-slate-700 transition" data-start="2020-01-01" data-end="2099-12-31">All</button>
+                    </div>
+                </div>
+
+                <!-- DCA Strategy Parameters Card -->
+                <div class="panel-section">
+                    <div class="section-header space-between">
+                        <h2>Parameters</h2>
+                        <span class="subtitle font-mono text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded" id="storage-status-tag">Storage & URL Synced</span>
+                    </div>
+
+                    <!-- Base DCA Amount & LocalStorage Save -->
+                    <div class="input-group">
+                        <div class="flex items-center justify-between">
+                            <label for="dca-amount">BASE DCA AMOUNT/ORDER ($)</label>
+                            <span class="text-[10px] text-slate-400 font-mono" id="storage-last-save-time">Synced</span>
+                        </div>
+                        <div class="relative flex items-center">
+                            <input type="number" id="dca-amount" value="350" min="1" step="1" placeholder="350" class="w-full pr-24 font-bold text-slate-800" />
+                            <button type="button" id="btn-save-dca-storage" class="absolute right-1.5 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded text-[11px] font-bold transition shadow-sm" title="Manually save DCA amount & settings to Local Storage">
+                                💾 Save
+                            </button>
+                        </div>
+                        <div class="flex justify-between items-center text-[10px] text-slate-500 pt-0.5">
+                            <span>Default: <strong>$350.00</strong></span>
+                            <button type="button" id="btn-reset-dca-storage" class="text-blue-600 hover:underline">Reset to $350</button>
+                        </div>
+                    </div>
+
+                    <!-- Drawdown & Pivot Settings -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="input-group mb-0">
+                            <label for="dca-pivot-size">PIVOT SIZE (BARS)</label>
+                            <input type="number" id="dca-pivot-size" value="5" min="1" max="50" step="1" class="font-semibold text-slate-800" />
+                        </div>
+                        <div class="input-group mb-0">
+                            <label for="dca-min-drop">MIN DROP %</label>
+                            <input type="number" id="dca-min-drop" value="8" min="1" max="90" step="0.5" class="font-semibold text-slate-800" />
+                        </div>
+                    </div>
+
+                    <!-- Trend Moving Average -->
+                    <div class="grid grid-cols-2 gap-3 mt-3">
+                        <div class="input-group mb-0">
+                            <label for="dca-ma-type">TREND MA TYPE</label>
+                            <select id="dca-ma-type" class="w-full border border-slate-200 rounded p-2 text-xs font-semibold bg-white text-slate-800">
+                                <option value="EMA" selected>EMA</option>
+                                <option value="SMA">SMA</option>
+                            </select>
+                        </div>
+                        <div class="input-group mb-0">
+                            <label for="dca-ma-len">MA LENGTH</label>
+                            <input type="number" id="dca-ma-len" value="200" min="5" max="500" step="5" class="font-semibold text-slate-800" />
+                        </div>
+                    </div>
+
+                    <!-- RSI Weighting Controls -->
+                    <div class="sl-tp-controls mt-3">
+                        <div class="sl-tp-header space-between">
+                            <span class="sl-tp-signal">RSI-WEIGHTED MULTIPLIERS</span>
+                        </div>
+                        <div class="sl-tp-grid">
+                            <div class="sl-tp-field">
+                                <label for="dca-rsi-len">RSI LEN</label>
+                                <input type="number" id="dca-rsi-len" value="14" min="2" max="100" />
+                            </div>
+                            <div class="sl-tp-field">
+                                <label for="dca-rsi-ob">OB (0X)</label>
+                                <input type="number" id="dca-rsi-ob" value="70" min="50" max="99" />
+                            </div>
+                            <div class="sl-tp-field">
+                                <label for="dca-rsi-os">OS (2X)</label>
+                                <input type="number" id="dca-rsi-os" value="30" min="1" max="50" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <div class="button-group mt-4">
+                        <button class="btn btn-buy" id="btn-run-dca">
+                            <span class="title">⚙️ Run DCA Backtest</span>
+                            <span class="desc">Peak-Trough + RSI Weighted</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- TAB 2: History / Trade Log -->
+            <div class="sidebar-content" id="tab-history">
+                <div class="panel-section history-card">
+                    <div class="section-header space-between">
+                        <h2>Simulated DCA Entries</h2>
+                        <span class="trade-count" id="history-count">0 Entries</span>
+                    </div>
+
+                    <div class="history-list-container">
+                        <ul class="history-list" id="trade-history-list">
+                            <li class="empty-state" id="history-empty">No DCA buy entries in this range.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+    </div>
+
+    <!-- Strategy Guide Modal -->
+    <div id="guide-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span> Drawdown DCA Strategy Guide
+                </h3>
+                <button id="btn-close-guide" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+            </div>
+            <div class="text-xs text-slate-600 space-y-3 leading-relaxed">
+                <p><strong>1. Peak-to-Trough Drawdown:</strong> Identifies swing pivot highs and lows. When price drops by more than the minimum drop percentage (e.g. 8%) from the peak, a DCA entry is triggered.</p>
+                <p><strong>2. RSI Multiplier:</strong> Adjusts allocation dynamically. If RSI &le; Oversold (e.g. 30), allocation is doubled (2x). If RSI &ge; Overbought (e.g. 70), allocation pauses (0x).</p>
+                <p><strong>3. Heikin Ashi Candles:</strong> Filters market noise for cleaner swing pivot identification.</p>
+                <p><strong>4. LocalStorage & URL Sync:</strong> All settings and the active filter period are stored in browser memory and URL query params across reloads.</p>
+            </div>
+            <div class="pt-3 border-t border-slate-100 text-right">
+                <button id="btn-close-guide-footer" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-lg transition">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core DCA Application Script -->
+    <script>
+        /**
+         * Drawdown DCA Simulator - Core Logic
+         * Combined: Peak-Trough Drawdown Map + RSI-Weighted DCA (1D Timeframe)
+         * Displaying: Heikin Ashi candles and Peak-to-Trough Drawdown Lines
+         */
+
+        // Local Storage Keys
+        const STORAGE_KEY_AMOUNT = 'dca_investment_amount';
+        const STORAGE_KEY_SETTINGS = 'dca_simulator_settings';
+        
+        const DEFAULT_CONFIG = {
+            startDate: '2026-01-01',
+            endDate: '2099-12-31',
+            amount: 350,
+            lenPivot: 5,
+            minDropPct: 8.0,
+            maType: 'EMA',
+            maLen: 200,
+            rsiLen: 14,
+            rsiOb: 70,
+            rsiOs: 30,
+            timeframe: '1d'
+        };
+
+        // --- Settings Management (URL & LocalStorage) ---
+        function loadSettings() {
+            // 1. First check URL query parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const settings = { ...DEFAULT_CONFIG };
+
+            // 2. Read from LocalStorage fallback
+            try {
+                const storedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+                if (storedSettings) {
+                    const parsed = JSON.parse(storedSettings);
+                    Object.assign(settings, parsed);
+                }
+                const storedAmount = localStorage.getItem(STORAGE_KEY_AMOUNT);
+                if (storedAmount) {
+                    const num = parseFloat(storedAmount);
+                    if (!isNaN(num) && num > 0) settings.amount = num;
+                }
+            } catch (e) {
+                console.warn('LocalStorage read error:', e);
+            }
+
+            // 3. Override with URL params if present
+            if (urlParams.has('start')) settings.startDate = urlParams.get('start');
+            if (urlParams.has('end')) settings.endDate = urlParams.get('end');
+            if (urlParams.has('amount')) settings.amount = parseFloat(urlParams.get('amount')) || settings.amount;
+            if (urlParams.has('pivot')) settings.lenPivot = parseInt(urlParams.get('pivot')) || settings.lenPivot;
+            if (urlParams.has('drop')) settings.minDropPct = parseFloat(urlParams.get('drop')) || settings.minDropPct;
+            if (urlParams.has('maType')) settings.maType = urlParams.get('maType');
+            if (urlParams.has('maLen')) settings.maLen = parseInt(urlParams.get('maLen')) || settings.maLen;
+            if (urlParams.has('rsiLen')) settings.rsiLen = parseInt(urlParams.get('rsiLen')) || settings.rsiLen;
+            if (urlParams.has('rsiOb')) settings.rsiOb = parseInt(urlParams.get('rsiOb')) || settings.rsiOb;
+            if (urlParams.has('rsiOs')) settings.rsiOs = parseInt(urlParams.get('rsiOs')) || settings.rsiOs;
+            if (urlParams.has('tf')) settings.timeframe = urlParams.get('tf');
+
+            return settings;
+        }
+
+        function saveSettings(settings) {
+            try {
+                // Save to LocalStorage
+                localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
+                localStorage.setItem(STORAGE_KEY_AMOUNT, settings.amount.toString());
+                localStorage.setItem(STORAGE_KEY_SETTINGS + '_time', new Date().toISOString());
+
+                // Sync to URL Query String without reloading page
+                const url = new URL(window.location.href);
+                url.searchParams.set('start', settings.startDate);
+                url.searchParams.set('end', settings.endDate);
+                url.searchParams.set('amount', settings.amount);
+                url.searchParams.set('pivot', settings.lenPivot);
+                url.searchParams.set('drop', settings.minDropPct);
+                url.searchParams.set('maType', settings.maType);
+                url.searchParams.set('maLen', settings.maLen);
+                url.searchParams.set('rsiLen', settings.rsiLen);
+                url.searchParams.set('rsiOb', settings.rsiOb);
+                url.searchParams.set('rsiOs', settings.rsiOs);
+                url.searchParams.set('tf', settings.timeframe);
+
+                window.history.replaceState({}, '', url.toString());
+
+                updateStorageUI(settings.amount);
+                updateFilterBadge(settings.startDate, settings.endDate);
+            } catch (e) {
+                console.error('Failed to save settings:', e);
+            }
+        }
+
+        function updateFilterBadge(start, end) {
+            const badge = document.getElementById('filter-display-badge');
+            if (!badge) return;
+            const fmtDate = (dStr) => {
+                if (!dStr) return '';
+                const [y, m, d] = dStr.split('-');
+                return `${d}/${m}/${y}`;
+            };
+            badge.textContent = `${fmtDate(start)} → ${fmtDate(end)}`;
+        }
+
+        function updateStorageUI(amount) {
+            const formatted = formatCurrency(amount);
+            const tag = document.getElementById('storage-status-tag');
+            const badge = document.getElementById('stat-dca-current-badge');
+            const lastSave = document.getElementById('storage-last-save-time');
+            if (tag) tag.textContent = `Storage: ${formatted}`;
+            if (badge) badge.textContent = formatted;
+            if (lastSave) {
+                lastSave.textContent = `Saved ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+            }
+        }
+
+        // --- State Management ---
+        const initialSettings = loadSettings();
+
+        const STATE = {
+            livePrice: 0.0,
+            candles: [], // raw daily candles
+            haCandles: [], // calculated Heikin Ashi daily candles
+            timeframe: initialSettings.timeframe || '1d',
+            isInitialLoad: true,
+
+            // DCA Simulation settings & state
+            dca: {
+                lenPivot: initialSettings.lenPivot,
+                minDropPct: initialSettings.minDropPct,
+                amount: initialSettings.amount,
+                maType: initialSettings.maType,
+                maLen: initialSettings.maLen,
+                rsiLen: initialSettings.rsiLen,
+                rsiOb: initialSettings.rsiOb,
+                rsiOs: initialSettings.rsiOs,
+                startDate: initialSettings.startDate,
+                endDate: initialSettings.endDate,
+
+                // Result metrics
+                usdTotal: 0,
+                btcTotal: 0,
+                nTrades: 0,
+                profitUsd: 0,
+                profitPct: 0,
+                portfolioValue: 0,
+                avgCost: 0,
+
+                // Lists for plotting/tracking
+                trades: [],
+                avgCostSeries: [],
+                ma21Series: [],
+                ma50Series: [],
+                ma200Series: [],
+                peaks: [],
+                troughs: [],
+            }
+        };
+
+        // --- DOM Elements ---
+        const DOM = {
+            livePrice: document.getElementById('live-price'),
+            chartHost: document.getElementById('custom-chart'),
+            indicatorStatus: document.getElementById('indicator-status'),
+
+            // DCA DOM elements
+            dcaPivotSize: document.getElementById('dca-pivot-size'),
+            dcaMinDrop: document.getElementById('dca-min-drop'),
+            dcaAmount: document.getElementById('dca-amount'),
+            dcaMaType: document.getElementById('dca-ma-type'),
+            dcaMaLen: document.getElementById('dca-ma-len'),
+            dcaRsiLen: document.getElementById('dca-rsi-len'),
+            dcaRsiOb: document.getElementById('dca-rsi-ob'),
+            dcaRsiOs: document.getElementById('dca-rsi-os'),
+            btnRunDca: document.getElementById('btn-run-dca'),
+
+            dcaStatInvested: document.getElementById('dca-stat-invested'),
+            dcaStatValue: document.getElementById('dca-stat-value'),
+            dcaStatAvgCost: document.getElementById('dca-stat-avg-cost'),
+            dcaStatProfit: document.getElementById('dca-stat-profit'),
+            dcaStatProfitPct: document.getElementById('dca-stat-profit-pct'),
+            dcaStatEntries: document.getElementById('dca-stat-entries'),
+
+            btnScreenshot: document.getElementById('btn-screenshot'),
+
+            // Timeframe buttons & Zoom controls
+            tf1d: document.getElementById('tf-1d'),
+            tf3d: document.getElementById('tf-3d'),
+            tf1w: document.getElementById('tf-1w'),
+            btnZoomIn: document.getElementById('btn-zoom-in'),
+            btnZoomOut: document.getElementById('btn-zoom-out'),
+            btnZoomFit: document.getElementById('btn-zoom-fit'),
+
+            dcaStartDate: document.getElementById('dca-start-date'),
+            dcaEndDate: document.getElementById('dca-end-date'),
+            dcaStartDateSide: document.getElementById('dca-start-date-side'),
+            dcaEndDateSide: document.getElementById('dca-end-date-side'),
+        };
+
+        let chartApi;
+        let candleSeries;
+        let ma21Series;
+        let ma50Series;
+        let ma200Series;
+        let dcaAvgCostSeries;
+
+        // --- Initialization ---
+        async function init() {
+            // Apply loaded settings to all DOM inputs
+            applySettingsToDOM(initialSettings);
+
+            attachEventListeners();
+            setupChart();
+            await bootstrapMarketData(STATE.timeframe);
+            setupLivePriceSocket();
+        }
+
+        function applySettingsToDOM(settings) {
+            if (DOM.dcaAmount) DOM.dcaAmount.value = settings.amount;
+            if (DOM.dcaPivotSize) DOM.dcaPivotSize.value = settings.lenPivot;
+            if (DOM.dcaMinDrop) DOM.dcaMinDrop.value = settings.minDropPct;
+            if (DOM.dcaMaType) DOM.dcaMaType.value = settings.maType;
+            if (DOM.dcaMaLen) DOM.dcaMaLen.value = settings.maLen;
+            if (DOM.dcaRsiLen) DOM.dcaRsiLen.value = settings.rsiLen;
+            if (DOM.dcaRsiOb) DOM.dcaRsiOb.value = settings.rsiOb;
+            if (DOM.dcaRsiOs) DOM.dcaRsiOs.value = settings.rsiOs;
+
+            if (DOM.dcaStartDate) DOM.dcaStartDate.value = settings.startDate;
+            if (DOM.dcaEndDate) DOM.dcaEndDate.value = settings.endDate;
+            if (DOM.dcaStartDateSide) DOM.dcaStartDateSide.value = settings.startDate;
+            if (DOM.dcaEndDateSide) DOM.dcaEndDateSide.value = settings.endDate;
+
+            updateStorageUI(settings.amount);
+            updateFilterBadge(settings.startDate, settings.endDate);
+
+            // Active TF button UI
+            const tfButtons = [DOM.tf1d, DOM.tf3d, DOM.tf1w];
+            tfButtons.forEach(b => {
+                if (b) {
+                    const matches = b.getAttribute('data-tf') === settings.timeframe;
+                    b.classList.toggle('bg-white', matches);
+                    b.classList.toggle('text-slate-800', matches);
+                    b.classList.toggle('shadow-sm', matches);
+                    b.classList.toggle('text-slate-500', !matches);
+                }
+            });
+        }
+
+        function syncDateInputs(source) {
+            if (source === 'top') {
+                if (DOM.dcaStartDateSide && DOM.dcaStartDate) DOM.dcaStartDateSide.value = DOM.dcaStartDate.value;
+                if (DOM.dcaEndDateSide && DOM.dcaEndDate) DOM.dcaEndDateSide.value = DOM.dcaEndDate.value;
+            } else {
+                if (DOM.dcaStartDate && DOM.dcaStartDateSide) DOM.dcaStartDate.value = DOM.dcaStartDateSide.value;
+                if (DOM.dcaEndDate && DOM.dcaEndDateSide) DOM.dcaEndDate.value = DOM.dcaEndDateSide.value;
+            }
+        }
+
+        function attachEventListeners() {
+            DOM.btnRunDca?.addEventListener('click', () => {
+                STATE.isInitialLoad = true;
+                runDCASimulation();
+            });
+
+            DOM.btnScreenshot?.addEventListener('click', captureAndSendChart);
+
+            // Manual Save DCA button listener
+            document.getElementById('btn-save-dca-storage')?.addEventListener('click', () => {
+                syncDCAConfigFromDOM();
+                const settings = {
+                    startDate: STATE.dca.startDate,
+                    endDate: STATE.dca.endDate,
+                    amount: STATE.dca.amount,
+                    lenPivot: STATE.dca.lenPivot,
+                    minDropPct: STATE.dca.minDropPct,
+                    maType: STATE.dca.maType,
+                    maLen: STATE.dca.maLen,
+                    rsiLen: STATE.dca.rsiLen,
+                    rsiOb: STATE.dca.rsiOb,
+                    rsiOs: STATE.dca.rsiOs,
+                    timeframe: STATE.timeframe
+                };
+                saveSettings(settings);
+
+                const btn = document.getElementById('btn-save-dca-storage');
+                if (btn) {
+                    btn.textContent = '✓ Saved!';
+                    btn.classList.remove('bg-blue-600');
+                    btn.classList.add('bg-emerald-600');
+                    setTimeout(() => {
+                        btn.textContent = '💾 Save';
+                        btn.classList.remove('bg-emerald-600');
+                        btn.classList.add('bg-blue-600');
+                    }, 2000);
+                }
+                runDCASimulation();
+            });
+
+            // Reset DCA button listener
+            document.getElementById('btn-reset-dca-storage')?.addEventListener('click', () => {
+                applySettingsToDOM(DEFAULT_CONFIG);
+                saveSettings(DEFAULT_CONFIG);
+                STATE.isInitialLoad = true;
+                runDCASimulation();
+            });
+
+            // Date synchronization between Header and Sidebar
+            DOM.dcaStartDate?.addEventListener('change', () => {
+                syncDateInputs('top');
+                triggerAutoSave();
+            });
+            DOM.dcaEndDate?.addEventListener('change', () => {
+                syncDateInputs('top');
+                triggerAutoSave();
+            });
+            DOM.dcaStartDateSide?.addEventListener('change', () => {
+                syncDateInputs('side');
+                triggerAutoSave();
+            });
+            DOM.dcaEndDateSide?.addEventListener('change', () => {
+                syncDateInputs('side');
+                triggerAutoSave();
+            });
+
+            // Quick Preset Period Buttons
+            document.querySelectorAll('.btn-quick-period').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const start = e.currentTarget.getAttribute('data-start');
+                    const end = e.currentTarget.getAttribute('data-end');
+                    if (DOM.dcaStartDate) DOM.dcaStartDate.value = start;
+                    if (DOM.dcaEndDate) DOM.dcaEndDate.value = end;
+                    if (DOM.dcaStartDateSide) DOM.dcaStartDateSide.value = start;
+                    if (DOM.dcaEndDateSide) DOM.dcaEndDateSide.value = end;
+                    STATE.isInitialLoad = true;
+                    triggerAutoSave();
+                });
+            });
+
+            // Auto-run and sync when inputs change
+            const inputs = [
+                DOM.dcaPivotSize,
+                DOM.dcaMinDrop,
+                DOM.dcaAmount,
+                DOM.dcaMaType,
+                DOM.dcaMaLen,
+                DOM.dcaRsiLen,
+                DOM.dcaRsiOb,
+                DOM.dcaRsiOs
+            ];
+
+            inputs.forEach(input => {
+                input?.addEventListener('change', triggerAutoSave);
+                input?.addEventListener('input', triggerAutoSave);
+            });
+
+            function triggerAutoSave() {
+                syncDCAConfigFromDOM();
+                const settings = {
+                    startDate: STATE.dca.startDate,
+                    endDate: STATE.dca.endDate,
+                    amount: STATE.dca.amount,
+                    lenPivot: STATE.dca.lenPivot,
+                    minDropPct: STATE.dca.minDropPct,
+                    maType: STATE.dca.maType,
+                    maLen: STATE.dca.maLen,
+                    rsiLen: STATE.dca.rsiLen,
+                    rsiOb: STATE.dca.rsiOb,
+                    rsiOs: STATE.dca.rsiOs,
+                    timeframe: STATE.timeframe
+                };
+                saveSettings(settings);
+                runDCASimulation();
+            }
+
+            // Sidebar Tabs
+            const tabs = document.querySelectorAll('.sidebar-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    const targetId = tab.getAttribute('data-target');
+                    document.querySelectorAll('.sidebar-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    const targetContent = document.getElementById(targetId);
+                    if (targetContent) targetContent.classList.add('active');
+                });
+            });
+
+            // Strategy Guide modal
+            const guideModal = document.getElementById('guide-modal');
+            const openGuide = () => {
+                guideModal.classList.remove('hidden');
+                guideModal.classList.add('flex');
+            };
+            const closeGuide = () => {
+                guideModal.classList.add('hidden');
+                guideModal.classList.remove('flex');
+            };
+
+            document.getElementById('btn-guide')?.addEventListener('click', openGuide);
+            document.getElementById('btn-close-guide')?.addEventListener('click', closeGuide);
+            document.getElementById('btn-close-guide-footer')?.addEventListener('click', closeGuide);
+            guideModal?.addEventListener('click', (e) => {
+                if (e.target === guideModal) closeGuide();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeGuide();
+            });
+
+            // Timeframe selector click handlers
+            const tfButtons = [DOM.tf1d, DOM.tf3d, DOM.tf1w];
+            tfButtons.forEach(btn => {
+                btn?.addEventListener('click', async () => {
+                    const selectedTf = btn.getAttribute('data-tf');
+                    if (STATE.timeframe === selectedTf) return;
+
+                    // Update UI classes
+                    tfButtons.forEach(b => {
+                        b?.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+                        b?.classList.add('text-slate-500', 'hover:text-slate-800');
+                    });
+                    btn.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+                    btn.classList.remove('text-slate-500', 'hover:text-slate-800');
+
+                    STATE.timeframe = selectedTf;
+                    triggerAutoSave();
+                    await bootstrapMarketData(selectedTf);
+                });
+            });
+
+            // Zoom controls (Larger Candles)
+            DOM.btnZoomIn?.addEventListener('click', () => {
+                zoomChart(0.8);
+            });
+            DOM.btnZoomOut?.addEventListener('click', () => {
+                zoomChart(1.25);
+            });
+            DOM.btnZoomFit?.addEventListener('click', () => {
+                if (!chartApi) return;
+                chartApi.timeScale().fitContent();
+            });
+        }
+
+        // --- Chart setup ---
+        function setupChart() {
+            if (!DOM.chartHost) return;
+            DOM.chartHost.innerHTML = '';
+
+            const rect = DOM.chartHost.getBoundingClientRect();
+            const width = rect.width || DOM.chartHost.clientWidth || 800;
+            const height = rect.height || DOM.chartHost.clientHeight || 500;
+
+            chartApi = LightweightCharts.createChart(DOM.chartHost, {
+                width: width,
+                height: height,
+                layout: {
+                    background: { color: '#ffffff' },
+                    textColor: '#64748b',
+                    fontSize: 11,
+                    fontFamily: 'Inter, sans-serif'
+                },
+                grid: {
+                    vertLines: { visible: false },
+                    horzLines: { color: '#f1f5f9', style: 2 },
+                },
+                rightPriceScale: {
+                    borderColor: '#f1f5f9'
+                },
+                timeScale: {
+                    borderColor: '#f1f5f9',
+                    timeVisible: false,
+                    secondsVisible: false,
+                    barSpacing: 7,
+                    minBarSpacing: 3,
+                    rightOffset: 8,
+                    tickMarkFormatter: (time) => {
+                        const d = new Date((time + 7 * 3600) * 1000);
+                        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getUTCDate()).padStart(2, '0');
+                        return `${mm}/${dd}`;
+                    },
+                },
+                localization: {
+                    timeFormatter: (time) => {
+                        const d = new Date((time + 7 * 3600) * 1000);
+                        const yyyy = d.getUTCFullYear();
+                        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                        const dd = String(d.getUTCDate()).padStart(2, '0');
+                        return `${yyyy}-${mm}-${dd}`;
+                    }
+                },
+                crosshair: {
+                    mode: 1
+                },
+            });
+
+            const candleOpts = {
+                upColor: '#10b981',
+                downColor: '#1e293b',
+                borderUpColor: '#10b981',
+                borderDownColor: '#1e293b',
+                wickUpColor: '#10b981',
+                wickDownColor: '#1e293b',
+            };
+
+            const lineBase = {
+                lineWidth: 1.5,
+                lastValueVisible: false,
+                priceLineVisible: false,
+            };
+
+            const ma21Opts = { ...lineBase, color: '#10b981' }; // green 21 EMA
+            const ma50Opts = { ...lineBase, color: '#ef4444' }; // red 50 EMA
+            const ma200Opts = { ...lineBase, color: '#8b5cf6', lineWidth: 2 }; // purple 200 MA
+            const dcaAvgCostOpts = { ...lineBase, color: '#f97316', lineWidth: 2.5 }; // orange Avg Cost
+
+            function createCandle(chart, opts) {
+                if (typeof chart.addCandlestickSeries === 'function') return chart.addCandlestickSeries(opts);
+                if (typeof chart.addSeries === 'function' && LightweightCharts.CandlestickSeries) return chart.addSeries(LightweightCharts.CandlestickSeries, opts);
+            }
+            function createLine(chart, opts) {
+                if (typeof chart.addLineSeries === 'function') return chart.addLineSeries(opts);
+                if (typeof chart.addSeries === 'function' && LightweightCharts.LineSeries) return chart.addSeries(LightweightCharts.LineSeries, opts);
+            }
+
+            candleSeries = createCandle(chartApi, candleOpts);
+            ma21Series = createLine(chartApi, ma21Opts);
+            ma50Series = createLine(chartApi, ma50Opts);
+            ma200Series = createLine(chartApi, ma200Opts);
+            dcaAvgCostSeries = createLine(chartApi, dcaAvgCostOpts);
+
+            if (window.ResizeObserver) {
+                const ro = new ResizeObserver(() => {
+                    if (chartApi && DOM.chartHost && DOM.chartHost.clientWidth > 0) {
+                        chartApi.applyOptions({
+                            width: DOM.chartHost.clientWidth,
+                            height: DOM.chartHost.clientHeight
+                        });
+                    }
+                });
+                ro.observe(DOM.chartHost);
+            } else {
+                window.addEventListener('resize', () => {
+                    const r = DOM.chartHost.getBoundingClientRect();
+                    chartApi.applyOptions({ width: r.width, height: r.height });
+                });
+            }
+        }
+
+        // --- Data Fetching ---
+        let refreshIntervalId = null;
+
+        async function bootstrapMarketData(interval = '1d') {
+            try {
+                STATE.timeframe = interval;
+                STATE.isInitialLoad = true;
+                if (DOM.indicatorStatus) DOM.indicatorStatus.textContent = `Fetching ${interval.toUpperCase()} klines…`;
+
+                const url = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=500`;
+                const res = await fetch(url);
+                const rows = await res.json();
+
+                STATE.candles = rows.map((k) => ({
+                    time: Math.floor(k[0] / 1000),
+                    open: Number(k[1]),
+                    high: Number(k[2]),
+                    low: Number(k[3]),
+                    close: Number(k[4]),
+                    volume: Number(k[5]),
+                }));
+
+                const last = STATE.candles[STATE.candles.length - 1];
+                STATE.livePrice = last?.close || 0;
+                if (DOM.livePrice) DOM.livePrice.innerText = formatCurrency(STATE.livePrice);
+                if (DOM.indicatorStatus) DOM.indicatorStatus.textContent = `Drawdown DCA Active (${interval.toUpperCase()})`;
+
+                runDCASimulation();
+
+                if (!refreshIntervalId) {
+                    refreshIntervalId = setInterval(refreshCandles, 30_000);
+                }
+            } catch (e) {
+                console.error(`Failed to bootstrap ${interval} OHLC:`, e);
+                if (DOM.indicatorStatus) DOM.indicatorStatus.textContent = 'Data loading failed';
+            }
+        }
+
+        async function refreshCandles() {
+            try {
+                const interval = STATE.timeframe || '1d';
+                const url = `https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=500`;
+                const res = await fetch(url);
+                const rows = await res.json();
+
+                STATE.candles = rows.map((k) => ({
+                    time: Math.floor(k[0] / 1000),
+                    open: Number(k[1]),
+                    high: Number(k[2]),
+                    low: Number(k[3]),
+                    close: Number(k[4]),
+                    volume: Number(k[5]),
+                }));
+
+                const last = STATE.candles[STATE.candles.length - 1];
+                STATE.livePrice = last?.close || STATE.livePrice;
+                runDCASimulation();
+            } catch (e) {
+                console.error('Candle refresh failed:', e);
+            }
+        }
+
+        let lastSimTime = 0;
+        let simTimeoutId = null;
+
+        function requestDCASimulation() {
+            const now = Date.now();
+            if (now - lastSimTime > 1000) {
+                lastSimTime = now;
+                runDCASimulation();
+            } else {
+                if (simTimeoutId) clearTimeout(simTimeoutId);
+                simTimeoutId = setTimeout(() => {
+                    lastSimTime = Date.now();
+                    runDCASimulation();
+                }, 1000 - (now - lastSimTime));
+            }
+        }
+
+        function setupLivePriceSocket() {
+            try {
+                const ws = new WebSocket('wss://stream.binance.com:9443/ws/btcusdt@trade');
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    const price = parseFloat(data.p);
+                    const prevPrice = STATE.livePrice;
+                    STATE.livePrice = price;
+                    if (DOM.livePrice) DOM.livePrice.innerText = formatCurrency(price);
+
+                    // Flash colors for visual feedback
+                    if (DOM.livePrice) {
+                        if (price > prevPrice) DOM.livePrice.style.color = 'var(--color-success)';
+                        else if (price < prevPrice) DOM.livePrice.style.color = 'var(--color-error)';
+                        setTimeout(() => {
+                            if (DOM.livePrice) DOM.livePrice.style.color = 'var(--text-primary)';
+                        }, 400);
+                    }
+
+                    // Update last candle close dynamically
+                    if (STATE.candles.length > 0) {
+                        STATE.candles[STATE.candles.length - 1].close = price;
+                        requestDCASimulation();
+                    }
+                };
+                ws.onerror = (error) => {
+                    console.error('WebSocket Error:', error);
+                };
+            } catch (e) {
+                console.warn('Socket failed, falling back to polling:', e);
+            }
+        }
+
+        // --- Technical Indicators ---
+        function ema(values, period) {
+            if (!values.length) return [];
+            const k = 2 / (period + 1);
+            const out = [];
+            let prev = values[0];
+            for (let i = 0; i < values.length; i++) {
+                prev = i === 0 ? values[i] : values[i] * k + prev * (1 - k);
+                out.push(prev);
+            }
+            return out;
+        }
+
+        function calculateSMA(values, period) {
+            const out = new Array(values.length).fill(null);
+            if (values.length < period) return out;
+            let sum = 0;
+            for (let i = 0; i < period; i++) {
+                sum += values[i];
+            }
+            out[period - 1] = sum / period;
+            for (let i = period; i < values.length; i++) {
+                sum = sum - values[i - period] + values[i];
+                out[i] = sum / period;
+            }
+            return out;
+        }
+
+        function calculateRSI(closes, period) {
+            const out = new Array(closes.length).fill(null);
+            if (closes.length < period + 1) return out;
+
+            let avgGain = 0;
+            let avgLoss = 0;
+
+            for (let i = 1; i <= period; i++) {
+                const diff = closes[i] - closes[i - 1];
+                if (diff > 0) avgGain += diff;
+                else avgLoss -= diff;
+            }
+
+            avgGain /= period;
+            avgLoss /= period;
+            out[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+
+            for (let i = period + 1; i < closes.length; i++) {
+                const diff = closes[i] - closes[i - 1];
+                const gain = diff > 0 ? diff : 0;
+                const loss = diff < 0 ? -diff : 0;
+
+                avgGain = (avgGain * (period - 1) + gain) / period;
+                avgLoss = (avgLoss * (period - 1) + loss) / period;
+
+                out[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+            }
+            return out;
+        }
+
+        // --- Swing Pivot Helpers ---
+        function getPivotHigh(candles, idx, left, right) {
+            if (idx < left || idx + right >= candles.length) return null;
+            const targetVal = candles[idx].high;
+            for (let j = idx - left; j < idx; j++) {
+                if (candles[j].high > targetVal) return null;
+            }
+            for (let j = idx + 1; j <= idx + right; j++) {
+                if (candles[j].high >= targetVal) return null;
+            }
+            return targetVal;
+        }
+
+        function getPivotLow(candles, idx, left, right) {
+            if (idx < left || idx + right >= candles.length) return null;
+            const targetVal = candles[idx].low;
+            for (let j = idx - left; j < idx; j++) {
+                if (candles[j].low > targetVal) return null;
+            }
+            for (let j = idx + 1; j <= idx + right; j++) {
+                if (candles[j].low <= targetVal) return null;
+            }
+            return targetVal;
+        }
+
+        // --- Heikin Ashi Generator ---
+        function buildHeikinAshi(candles) {
+            if (!candles.length) return [];
+            const out = [];
+            let prevHaOpen = (candles[0].open + candles[0].close) / 2;
+            let prevHaClose = (candles[0].open + candles[0].high + candles[0].low + candles[0].close) / 4;
+
+            for (let i = 0; i < candles.length; i++) {
+                const c = candles[i];
+                const haClose = (c.open + c.high + c.low + c.close) / 4;
+                const haOpen = i === 0 ? prevHaOpen : (prevHaOpen + prevHaClose) / 2;
+                const haHigh = Math.max(c.high, haOpen, haClose);
+                const haLow = Math.min(c.low, haOpen, haClose);
+
+                out.push({
+                    time: c.time,
+                    open: haOpen,
+                    high: haHigh,
+                    low: haLow,
+                    close: haClose,
+                    volume: c.volume
+                });
+
+                prevHaOpen = haOpen;
+                prevHaClose = haClose;
+            }
+            return out;
+        }
+
+        // --- DCA Core Simulation ---
+        function syncDCAConfigFromDOM() {
+            if (!DOM.dcaPivotSize) return;
+            STATE.dca.lenPivot = parseInt(DOM.dcaPivotSize.value) || DEFAULT_CONFIG.lenPivot;
+            STATE.dca.minDropPct = parseFloat(DOM.dcaMinDrop.value) || DEFAULT_CONFIG.minDropPct;
+            STATE.dca.amount = parseFloat(DOM.dcaAmount.value) || DEFAULT_CONFIG.amount;
+            STATE.dca.maType = DOM.dcaMaType.value || DEFAULT_CONFIG.maType;
+            STATE.dca.maLen = parseInt(DOM.dcaMaLen.value) || DEFAULT_CONFIG.maLen;
+            STATE.dca.rsiLen = parseInt(DOM.dcaRsiLen.value) || DEFAULT_CONFIG.rsiLen;
+            STATE.dca.rsiOb = parseInt(DOM.dcaRsiOb.value) || DEFAULT_CONFIG.rsiOb;
+            STATE.dca.rsiOs = parseInt(DOM.dcaRsiOs.value) || DEFAULT_CONFIG.rsiOs;
+
+            STATE.dca.startDate = DOM.dcaStartDate?.value || DEFAULT_CONFIG.startDate;
+            STATE.dca.endDate = DOM.dcaEndDate?.value || DEFAULT_CONFIG.endDate;
+        }
+
+        function runDCASimulation() {
+            syncDCAConfigFromDOM();
+            const rawCandles = STATE.candles;
+            if (!rawCandles || rawCandles.length < Math.max(STATE.dca.maLen, STATE.dca.lenPivot * 2 + 1)) {
+                console.warn('Insufficient candles to run DCA Backtest');
+                return;
+            }
+
+            // Date range timestamps
+            const startTs = STATE.dca.startDate ? Math.floor(new Date(STATE.dca.startDate).getTime() / 1000) : 0;
+            const endTs = STATE.dca.endDate ? Math.floor(new Date(STATE.dca.endDate + 'T23:59:59').getTime() / 1000) : Infinity;
+
+            // Translate raw candlesticks to Heikin Ashi values
+            const candles = buildHeikinAshi(rawCandles);
+            STATE.haCandles = candles;
+
+            const closes = candles.map(c => c.close);
+            const ma21Vals = ema(closes, 21);
+            const ma50Vals = ema(closes, 50);
+            const ma200Vals = STATE.dca.maType === 'EMA' ? ema(closes, STATE.dca.maLen) : calculateSMA(closes, STATE.dca.maLen);
+            const rsiVals = calculateRSI(closes, STATE.dca.rsiLen);
+
+            let peakPrice = null;
+            let peakIndex = null;
+            let usdTotal = 0;
+            let btcTotal = 0;
+            let nTrades = 0;
+
+            const trades = [];
+            const peaks = [];
+            const troughs = [];
+            const avgCostSeries = [];
+            const ma21SeriesData = [];
+            const ma50SeriesData = [];
+            const ma200SeriesData = [];
+
+            const lenPivot = STATE.dca.lenPivot;
+            const minDropPct = STATE.dca.minDropPct;
+            const dcaAmount = STATE.dca.amount;
+            const rsiOb = STATE.dca.rsiOb;
+            const rsiOs = STATE.dca.rsiOs;
+
+            for (let i = 0; i < candles.length; i++) {
+                const cTime = candles[i].time;
+                const inRange = cTime >= startTs && cTime <= endTs;
+
+                // 1. Build MA series within date range
+                if (inRange) {
+                    if (ma21Vals[i] !== null && !isNaN(ma21Vals[i])) {
+                        ma21SeriesData.push({ time: cTime, value: ma21Vals[i] });
+                    }
+                    if (ma50Vals[i] !== null && !isNaN(ma50Vals[i])) {
+                        ma50SeriesData.push({ time: cTime, value: ma50Vals[i] });
+                    }
+                    if (ma200Vals[i] !== null && !isNaN(ma200Vals[i])) {
+                        ma200SeriesData.push({ time: cTime, value: ma200Vals[i] });
+                    }
+                }
+
+                // 2. Pivot High at i - lenPivot
+                const ph = getPivotHigh(candles, i - lenPivot, lenPivot, lenPivot);
+                if (ph !== null) {
+                    if (peakPrice === null || ph > peakPrice) {
+                        peakPrice = ph;
+                        peakIndex = i - lenPivot;
+                    }
+                }
+
+                // 3. Pivot Low at i - lenPivot
+                const pl = getPivotLow(candles, i - lenPivot, lenPivot, lenPivot);
+                if (pl !== null && peakPrice !== null && (i - lenPivot) > peakIndex) {
+                    const plIndex = i - lenPivot;
+                    const ddRel = pl / peakPrice - 1.0;
+
+                    if (ddRel <= -(minDropPct / 100.0)) {
+                        const peakTime = candles[peakIndex].time;
+                        const troughTime = candles[plIndex].time;
+
+                        if (troughTime >= startTs && troughTime <= endTs) {
+                            if (!peaks.some(p => p.time === peakTime)) {
+                                peaks.push({ time: peakTime, price: peakPrice, dd: ddRel });
+                            }
+                            if (!troughs.some(t => t.time === troughTime)) {
+                                troughs.push({
+                                    time: troughTime,
+                                    price: pl,
+                                    peakTime: peakTime,
+                                    peakPrice: peakPrice,
+                                    dd: ddRel
+                                });
+                            }
+
+                            // DCA Buy
+                            const rsiT = rsiVals[plIndex] || 50;
+                            let mult = 1.0;
+                            if (rsiT >= rsiOb) {
+                                mult = 0.0;
+                            } else if (rsiT <= rsiOs) {
+                                mult = 2.0;
+                            }
+
+                            const invest = dcaAmount * mult;
+                            if (invest > 0) {
+                                const isDuplicate = trades.some(td => td.time === troughTime);
+                                if (!isDuplicate) {
+                                    usdTotal += invest;
+                                    btcTotal += invest / pl;
+                                    nTrades++;
+                                    trades.push({
+                                        time: troughTime,
+                                        price: pl,
+                                        amount: invest,
+                                        multiplier: mult,
+                                        rsi: rsiT,
+                                        tradeNum: nTrades,
+                                        dd: ddRel
+                                    });
+                                }
+                            }
+                        }
+
+                        // Reset peak
+                        peakPrice = null;
+                        peakIndex = null;
+                    }
+                }
+
+                // 4. Update running avg cost within date range
+                if (inRange && btcTotal > 0) {
+                    avgCostSeries.push({ time: cTime, value: usdTotal / btcTotal });
+                }
+            }
+
+            const lastClose = candles[candles.length - 1].close;
+            const portfolioValue = btcTotal * lastClose;
+            const profitUsd = portfolioValue - usdTotal;
+            const profitPct = usdTotal > 0 ? (profitUsd / usdTotal) * 100.0 : 0.0;
+            const avgCost = btcTotal > 0 ? usdTotal / btcTotal : 0.0;
+
+            STATE.dca.usdTotal = usdTotal;
+            STATE.dca.btcTotal = btcTotal;
+            STATE.dca.nTrades = nTrades;
+            STATE.dca.portfolioValue = portfolioValue;
+            STATE.dca.profitUsd = profitUsd;
+            STATE.dca.profitPct = profitPct;
+            STATE.dca.avgCost = avgCost;
+            STATE.dca.trades = trades;
+            STATE.dca.peaks = peaks;
+            STATE.dca.troughs = troughs;
+            STATE.dca.avgCostSeries = avgCostSeries;
+            STATE.dca.ma21Series = ma21SeriesData;
+            STATE.dca.ma50Series = ma50SeriesData;
+            STATE.dca.ma200Series = ma200SeriesData;
+
+            updateDCAUI();
+            renderDCAChart();
+            updateTradeLogUI();
+        }
+
+        function updateDCAUI() {
+            if (!DOM.dcaStatInvested) return;
+
+            DOM.dcaStatInvested.innerText = formatCurrency(STATE.dca.usdTotal);
+            DOM.dcaStatValue.innerText = formatCurrency(STATE.dca.portfolioValue);
+            DOM.dcaStatAvgCost.innerText = formatCurrency(STATE.dca.avgCost);
+
+            const profit = STATE.dca.profitUsd;
+            const isProfit = profit >= 0;
+            const sign = isProfit ? '+' : '';
+
+            DOM.dcaStatProfit.innerText = `${sign}${formatCurrency(profit)}`;
+            DOM.dcaStatProfit.className = `stat-value font-mono font-bold ${isProfit ? 'success' : 'error'}`;
+
+            DOM.dcaStatProfitPct.innerText = `${sign}${STATE.dca.profitPct.toFixed(2)}%`;
+            DOM.dcaStatProfitPct.className = `stat-value font-mono text-base font-bold ${isProfit ? 'success' : 'error'}`;
+
+            DOM.dcaStatEntries.innerText = STATE.dca.nTrades;
+        }
+
+        function updateTradeLogUI() {
+            const list = document.getElementById('trade-history-list');
+            const count = document.getElementById('history-count');
+            if (!list) return;
+
+            if (STATE.dca.trades.length === 0) {
+                list.innerHTML = '<li class="empty-state" id="history-empty">No DCA buy entries in this range.</li>';
+                if (count) count.textContent = '0 Entries';
+                return;
+            }
+
+            list.innerHTML = '';
+            if (count) count.textContent = `${STATE.dca.trades.length} Entries`;
+
+            // Display in reverse chronological order
+            const reversedTrades = [...STATE.dca.trades].reverse();
+            reversedTrades.forEach(tr => {
+                const dateStr = new Date(tr.time * 1000).toLocaleDateString('en-GB');
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `
+                    <div class="hi-main">
+                        <span class="hi-type long font-bold">DCA BUY #${tr.tradeNum} (${tr.multiplier}x)</span>
+                        <span class="hi-prices">@ ${formatCurrency(tr.price)} • RSI: ${tr.rsi.toFixed(1)} • DD: ${(tr.dd * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="hi-result">
+                        <span class="hi-pnl font-mono text-slate-800 font-bold">${formatCurrency(tr.amount)}</span>
+                        <span class="hi-time">${dateStr}</span>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function renderDCAChart() {
+            if (!candleSeries || !ma21Series || !ma50Series || !ma200Series || !dcaAvgCostSeries) return;
+
+            try {
+                const startTs = STATE.dca.startDate ? Math.floor(new Date(STATE.dca.startDate).getTime() / 1000) : 0;
+                const endTs = STATE.dca.endDate ? Math.floor(new Date(STATE.dca.endDate + 'T23:59:59').getTime() / 1000) : Infinity;
+
+                // Filter Heikin Ashi candles to selected date range
+                const filteredCandles = (STATE.haCandles || STATE.candles).filter(c => c.time >= startTs && c.time <= endTs);
+
+                candleSeries.setData(filteredCandles);
+                ma21Series.setData(STATE.dca.ma21Series);
+                ma50Series.setData(STATE.dca.ma50Series);
+                ma200Series.setData(STATE.dca.ma200Series);
+                dcaAvgCostSeries.setData(STATE.dca.avgCostSeries);
+
+                const markers = [];
+
+                // Peaks with drawdown percent tags (Retrospectively mapped)
+                STATE.dca.peaks.forEach(p => {
+                    const ddPctStr = (p.dd * 100).toFixed(1) + '%';
+                    markers.push({
+                        time: p.time,
+                        position: 'aboveBar',
+                        color: '#ef4444',
+                        shape: 'arrowDown',
+                        text: ddPctStr
+                    });
+                });
+
+                // Troughs & DCA Buy points
+                STATE.dca.troughs.forEach(t => {
+                    const trade = STATE.dca.trades.find(td => td.time === t.time);
+                    if (trade) {
+                        markers.push({
+                            time: t.time,
+                            position: 'belowBar',
+                            color: '#f97316',
+                            shape: 'circle',
+                            text: `DCA ${trade.multiplier}x`
+                        });
+                    }
+                });
+
+                markers.sort((a, b) => a.time - b.time);
+
+                if (typeof candleSeries.setMarkers === 'function') {
+                    candleSeries.setMarkers(markers);
+                } else if (typeof LightweightCharts.createSeriesMarkers === 'function') {
+                    LightweightCharts.createSeriesMarkers(candleSeries, markers);
+                }
+
+                const timeScale = chartApi.timeScale();
+                if (STATE.isInitialLoad) {
+                    timeScale.fitContent();
+                    STATE.isInitialLoad = false;
+                }
+            } catch (e) {
+                console.error('Error rendering DCA chart:', e);
+            }
+        }
+
+        function zoomChart(factor) {
+            if (!chartApi) return;
+            const timeScale = chartApi.timeScale();
+            const range = timeScale.getVisibleLogicalRange();
+            if (range) {
+                const width = range.to - range.from;
+                const newWidth = width * factor;
+                const center = (range.from + range.to) / 2;
+                timeScale.setVisibleLogicalRange({
+                    from: center - newWidth / 2,
+                    to: center + newWidth / 2,
+                });
+            }
+        }
+
+        // --- Screenshot helper ---
+        async function captureAndSendChart() {
+            if (!chartApi) return;
+            try {
+                DOM.btnScreenshot.style.opacity = '0.5';
+                DOM.btnScreenshot.style.pointerEvents = 'none';
+
+                let canvas;
+                if (typeof chartApi.takeScreenshot === 'function') {
+                    const result = chartApi.takeScreenshot();
+                    if (result instanceof HTMLCanvasElement) {
+                        canvas = result;
+                    } else if (typeof result === 'string') {
+                        canvas = document.createElement('canvas');
+                        const img = new Image();
+                        await new Promise((resolve, reject) => {
+                            img.onload = resolve;
+                            img.onerror = reject;
+                            img.src = result;
+                        });
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                    }
+                }
+
+                if (!canvas) {
+                    throw new Error('Screenshot canvas not generated');
+                }
+
+                const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+
+                // Download the file
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[\s/:]/g, '-');
+                link.href = url;
+                link.download = `dca-ha-chart-${timestamp}.png`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error('Screenshot capture failed:', e);
+            } finally {
+                DOM.btnScreenshot.style.opacity = '1';
+                DOM.btnScreenshot.style.pointerEvents = 'auto';
+            }
+        }
+
+        // --- Utility Helpers ---
+        function formatCurrency(num) {
+            return '$' + Number(num || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            });
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
